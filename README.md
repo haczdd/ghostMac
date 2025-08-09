@@ -1,72 +1,73 @@
 # GhostMac – MAC Address Changer
 
-GhostMac, Linux əməliyyat sistemlərində şəbəkə interfeyslərinin MAC ünvanını dəyişdirmək, təsadüfi MAC ünvanı generasiya etmək və orijinal MAC ünvanını bərpa etmək üçün hazırlanmış yüngül və funksional alətdir. Layihə həm komanda sətri interfeysi (CLI), həm də mətn əsaslı istifadəçi interfeysi (TUI) təqdim edir.
+GhostMac is a lightweight and functional tool designed for Linux systems to change network interface MAC addresses, generate random MAC addresses, and restore the original MAC address. The project provides both a Command-Line Interface (CLI) and a Text-based User Interface (TUI).
 
-## Xüsusiyyətlər
-- **CLI rejimi** – `main.py` vasitəsilə birbaşa komanda sətrindən idarəetmə
-- **TUI rejimi** – `tui.py` vasitəsilə interaktiv menyu
-- Orijinal MAC ünvanının avtomatik ehtiyat nüsxələnməsi
-- Təsadüfi MAC ünvanı generasiyası
-- MAC ünvanı dəyişikliklərinin log faylında saxlanması
-- Sadə və təhlükəsiz işləmə prinsipi
+## Features
+- **CLI mode** – Manage directly from the command line via `main.py`
+- **TUI mode** – Interactive menu via `tui.py`
+- Automatic backup of the original MAC address
+- Random MAC address generation
+- Logging of MAC address changes
+- Simple and safe operation
 
 ---
 
-## Quraşdırma
+## Installation
 ```bash
-# Repository-ni klonlayın
-git clone https://github.com/<istifadəçi_adı>/GhostMac.git
-cd GhostMac
+# Clone the repository
+git clone https://github.com/haczdd/ghostMac.git
+cd ghostMac
 
-# Asılılıqları quraşdırın
+# Install dependencies
 pip install colorama
 ```
 
 ---
 
-## İstifadə
+## Usage
 
-### 1. CLI versiyası (`main.py`)
+### 1. CLI version (`main.py`)
 ```bash
-# MAC ünvanını dəyişmək
+# Change MAC address
 sudo python3 main.py -i eth0 -m 00:11:22:33:44:55
 
-# Təsadüfi MAC ünvanı təyin etmək
+# Assign a random MAC address
 sudo python3 main.py -i eth0 --random
 
-# Orijinal MAC ünvanına qaytarmaq
+# Restore the original MAC address
 sudo python3 main.py -i eth0 --reset
 ```
 
 ---
 
-### 2. TUI versiyası (`tui.py`)
+### 2. TUI version (`tui.py`)
 ```bash
 sudo python3 tui.py
 ```
-Menyu vasitəsilə:
-1. MAC ünvanını dəyişmək (manual və ya təsadüfi)
-2. Cari MAC ünvanını göstərmək
-3. Log faylını görüntüləmək
-4. Orijinal MAC ünvanını bərpa etmək
-0. Proqramdan çıxmaq
+Menu options:
+1. Change MAC address (manual or random)
+2. Show current MAC address
+3. View log file
+4. Restore original MAC address
+0. Exit
 
 ---
 
-## Fayl Strukturu
+## Project Structure
 ```
-GhostMac/
-│── main.py           # CLI versiyası
-│── tui.py            # Terminal UI versiyası
-│── README.md         # Layihə haqqında sənəd
-└── requirements.txt  # Asılılıqlar
+ghostMac/
+│── main.py           # CLI version
+│── tui.py            # Terminal UI version
+│── README.md         # Project documentation
+└── requirements.txt  # Dependencies
 ```
 
 ---
 
-## Qeydlər
-- Alət yalnız **Linux** mühitində test edilmişdir.
-- MAC ünvanını dəyişmək üçün `sudo` icazəsi tələb olunur.
-- Dəyişikliklər `~/.ghostmac/macchanger.log` faylında saxlanılır.
-- Orijinal MAC ünvanı ehtiyat nüsxə olaraq `~/.ghostmac/<interface>_original_mac.txt` və ya `~/.original_mac.txt` faylında saxlanılır.
+## Notes
+- This tool has been tested only on **Linux** environments.
+- `sudo` privileges are required to change the MAC address.
+- Changes are logged in `~/.ghostmac/macchanger.log`.
+- The original MAC address is backed up in `~/.ghostmac/<interface>_original_mac.txt` or `~/.original_mac.txt`.
+
 

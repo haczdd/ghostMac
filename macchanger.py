@@ -42,7 +42,7 @@ def print_banner():
     | |  __| |__   ___  ___| |_| \  / |  /  \ | |
     | | |_ | '_ \ / _ \/ __| __| |\/| | / /\ \| |
     | |__| | | | | (_) \__ \ |_| |  | |/ ____ \ |____
-     \_____|_| |_|\___/|___/\__|_|  |_/_/    \_\_____ 
+     \_____|_| |_|\___/|___/\__|_|  |_/_/    \_\_____
                                                      by Kifayat 🚀
     """ + Style.RESET_ALL)
 
@@ -53,6 +53,7 @@ def user_input():
     group.add_argument('-m', '--mac' , dest='mac_address', help="Enter new mac address")
     group.add_argument('--random', action='store_true', help='Generate random MAC address')
     group.add_argument('--reset', action='store_true', help='Reset to original MAC address (if backup exists)')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable debug output')
     return parser.parse_args()
 
 def is_valid_mac(mac):
@@ -68,18 +69,20 @@ def generate_random_mac():
 
 def control_inputs(interface, mac_address, random_flag):
     if not interface:
-        interface = input('Enter your interface: ')
+        interface = input('Enter your interface: ').strip()
     if random_flag:
         mac_address = generate_random_mac()
         print(f"[i] Generated random MAC: {mac_address}")
     elif not mac_address and not random_flag:
-        mac_address = input('Enter new mac address: ')
+        mac_address = input('Enter new mac address: ').strip()
+    else:
+        mac_address = mac_address.strip() if mac_address else mac_address
     return interface, mac_address
 
 def control_mac_address(interface):
     try:
-        ifconfig = subprocess.check_output(['ifconfig', interface])
-        old_mac_address = re.search(r'\w\w:\w\w:\w\w:\w\w:\w\w:\w\w', str(ifconfig))
+        ifconfig = subprocess.check_output(['ifconfig', interface], text=True)
+        old_mac_address = re.search(r'([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', ifconfig)
         if old_mac_address:
             return old_mac_address.group(0)
         else:
@@ -94,67 +97,83 @@ def mac_changer(interface, mac_address):
     subprocess.call(['ifconfig', interface, 'hw', 'ether', mac_address])
     subprocess.call(['ifconfig', interface, 'up'])
 
-def manage_original_mac(interface):
+def manage_original_mac(interface, verbose=False):
     """
-    Bu funksiya orijinal MAC ünvanının backup faylı varsa oxuyur və qaytarır.
-    Backup yoxdursa orijinal MAC-ı tapıb fayla yazır və qaytarır.
+    Backup yoxdursa orijinal MAC-ı oxuyub backup faylına yazır.
+    Backup varsa onu oxuyur və qaytarır.
+    Əgər backup fayl korruptdursa, onu silir və yenidən yaradır.
     """
     path = get_backup_path(interface)
+
     if os.path.exists(path):
         with open(path, "r") as f:
             original_mac = f.read().strip()
-        return original_mac
+        if verbose:
+            print(Fore.MAGENTA + f"[DEBUG] Backup MAC from file: {original_mac}" + Style.RESET_ALL)
+        if is_valid_mac(original_mac):
+            return original_mac
+        else:
+            if verbose:
+                print(Fore.RED + "[✗] Backup MAC invalid, deleting backup file." + Style.RESET_ALL)
+            os.remove(path)
 
     # Backup yoxdursa orijinal MAC-ı oxu
     try:
         with open(f"/sys/class/net/{interface}/address") as f:
             original_mac = f.read().strip()
+        if verbose:
+            print(Fore.MAGENTA + f"[DEBUG] MAC from sysfs: {original_mac}" + Style.RESET_ALL)
     except Exception:
-        original_mac = None
-
-    if not original_mac or not is_valid_mac(original_mac):
         original_mac = control_mac_address(interface)
 
     if original_mac and is_valid_mac(original_mac):
-        with open(path, "w") as f:
-            f.write(original_mac)
-        print(Fore.YELLOW + f"[i] Original MAC for {interface} saved: {original_mac}" + Style.RESET_ALL)
+        try:
+            with open(path, "w") as f:
+                f.write(original_mac)
+            if verbose:
+                print(Fore.YELLOW + f"[i] Original MAC for {interface} saved: {original_mac}" + Style.RESET_ALL)
+        except Exception as e:
+            print(Fore.RED + f"[✗] Failed to write backup MAC: {e}" + Style.RESET_ALL)
+            sys.exit(1)
         return original_mac
     else:
         print(Fore.RED + "[✗] Could not determine original MAC address" + Style.RESET_ALL)
         sys.exit(1)
 
-# ===== Main proqram =====
-args = user_input()
-ensure_config_dir()
-print_banner()
+def main():
+    args = user_input()
+    ensure_config_dir()
+    print_banner()
 
-if args.reset:
-    if not args.interface:
-        print(Fore.RED + "[✗] Interface is required when using --reset" + Style.RESET_ALL)
+    verbose = args.verbose
+
+    if args.reset:
+        if not args.interface:
+            print(Fore.RED + "[✗] Interface is required when using --reset" + Style.RESET_ALL)
+            sys.exit(1)
+        original_mac = manage_original_mac(args.interface, verbose)
+        print(f"[*] Resetting {args.interface} to original MAC: {original_mac}")
+        mac_changer(args.interface, original_mac)
+        sys.exit(0)
+
+    interface, mac_address = control_inputs(args.interface, args.mac_address, args.random)
+
+    # Orijinal MAC backup-u yaradılır (əgər yoxdursa)
+    manage_original_mac(interface, verbose)
+
+    if not is_valid_mac(mac_address):
+        print(Fore.RED + "[✗] Invalid MAC address format! Use format like: 00:11:22:33:44:55" + Style.RESET_ALL)
         sys.exit(1)
-    original_mac = manage_original_mac(args.interface)
-    if not original_mac or not is_valid_mac(original_mac):
-        print(Fore.RED + f"[✗] No valid original MAC found for {args.interface}" + Style.RESET_ALL)
-        sys.exit(1)
-    print(f"[*] Resetting {args.interface} to original MAC: {original_mac}")
-    mac_changer(args.interface, original_mac)
-    sys.exit(0)  # Resetdən sonra proqram bitir
 
-interface, mac_address = control_inputs(args.interface, args.mac_address, args.random)
+    mac_changer(interface, mac_address)
 
-# Orijinal MAC backup-u yaradılır (əgər yoxdursa)
-manage_original_mac(interface)
+    finalized_mac = control_mac_address(interface)
+    if finalized_mac == mac_address:
+        print(Fore.GREEN + "[✓] MAC address changed successfully" + Style.RESET_ALL)
+        log_change(interface, manage_original_mac(interface, verbose), mac_address)
+    else:
+        print(Fore.RED + "[✗] Failed to change MAC" + Style.RESET_ALL)
 
-if not is_valid_mac(mac_address):
-    print(Fore.RED + "[✗] Invalid MAC address format! Use format like: 00:11:22:33:44:55" + Style.RESET_ALL)
-    sys.exit(1)
+if __name__=='__main__':
+    main()
 
-mac_changer(interface, mac_address)
-
-finalized_mac = control_mac_address(interface)
-if finalized_mac == mac_address:
-    print(Fore.GREEN + "[✓] MAC address changed successfully" + Style.RESET_ALL)
-    log_change(interface, manage_original_mac(interface), mac_address)
-else:
-    print(Fore.RED + "[✗] Failed to change MAC" + Style.RESET_ALL)
